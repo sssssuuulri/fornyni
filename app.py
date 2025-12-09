@@ -18,15 +18,15 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 # ========================= НАСТРОЙКИ СКАНЕРА =========================
 
 # PUMP/DUMP DETECTION
-PRICE_CHANGE_THRESHOLD = 5.0      # Изменение цены в % за 15 минут
-VOLUME_SPIKE_THRESHOLD = 2.0      # Z-score объема для 15-минутного ТФ
-MIN_ABSOLUTE_VOLUME = 50000       # Минимальный объем в USDT
+PRICE_CHANGE_THRESHOLD = 2.5      # Ослабил в 2 раза с 5.0
+VOLUME_SPIKE_THRESHOLD = 1.0      # Ослабил в 2 раза с 2.0
+MIN_ABSOLUTE_VOLUME = 25000       # Ослабил в 2 раза с 50000
 
 # FILTERS
 REQUIRE_VOLUME_CONFIRMATION = True
 
-POLL_INTERVAL_SEC = 60            # Интервал сканирования (60 сек для 15min)
-SIGNAL_COOLDOWN_MIN = 30          # Кулдаун на монету (минут)
+POLL_INTERVAL_SEC = 30            # Увеличил частоту в 2 раза (было 60)
+SIGNAL_COOLDOWN_MIN = 15          # Ослабил в 2 раза с 30
 
 # ========================= ИНДИКАТОРЫ =========================
 
@@ -61,7 +61,7 @@ def calculate_price_change(ohlcv: List) -> float:
 
 def analyze_pump_dump(symbol: str, ohlcv: List) -> Optional[Dict[str, Any]]:
     try:
-        if len(ohlcv) < 30:  # Больше данных для 15min
+        if len(ohlcv) < 15:  # Ослабил в 2 раза с 30
             return None
 
         closes = [float(c[4]) for c in ohlcv]
@@ -75,7 +75,7 @@ def analyze_pump_dump(symbol: str, ohlcv: List) -> Optional[Dict[str, Any]]:
         price_change = calculate_price_change(ohlcv)
         
         # Расчет Z-score объема для 15-минутного ТФ
-        volume_zscore = calculate_volume_zscore(volumes[:-1], 20)
+        volume_zscore = calculate_volume_zscore(volumes[:-1], 10)  # Ослабил в 2 раза с 20
         
         # Проверка абсолютного объема
         volume_pass = current_volume >= MIN_ABSOLUTE_VOLUME
@@ -95,15 +95,15 @@ def analyze_pump_dump(symbol: str, ohlcv: List) -> Optional[Dict[str, Any]]:
         if not (volume_pass and volume_confirm):
             return None
         
-        # Определение силы сигнала для 15-минутного ТФ
-        if abs(price_change) >= 10:
-            confidence = 90
+        # Определение силы сигнала для 15-минутного ТФ (ослабил пороги в ~2 раза)
+        if abs(price_change) >= 5.0:  # Ослабил с 10
+            confidence = 85  # Немного уменьшил
             strength = "💥 СИЛЬНЫЙ"
-        elif abs(price_change) >= 7:
-            confidence = 80
+        elif abs(price_change) >= 3.5:  # Ослабил с 7
+            confidence = 75  # Немного уменьшил
             strength = "🚨 СРЕДНИЙ"
         else:
-            confidence = 70
+            confidence = 65  # Немного уменьшил
             strength = "📈 СЛАБЫЙ"
         
         signal_type = "PUMP" if is_pump else "DUMP"
@@ -229,7 +229,7 @@ def main():
                             continue
 
                     # Используем 15-минутный таймфрейм
-                    ohlcv = exchange.fetch_ohlcv(symbol, '15m', limit=30)
+                    ohlcv = exchange.fetch_ohlcv(symbol, '15m', limit=15)  # Уменьшил limit в 2 раза
                     if not ohlcv or len(ohlcv) < 5:
                         continue
 
